@@ -1,0 +1,11 @@
+{
+  "title": "Magnet Panic",
+  "description": "Guide drifting rescue capsules into the salvage bay with a magnetic field you flip at will — but debris is metal too. Brake, dose, save 10 capsules before time runs out.",
+  "entrypoint": "index.html",
+  "license": "MIT",
+  "genre": ["arcade", "skill"],
+  "themes": ["space", "physics", "magnetism"],
+  "controls": ["Mouse / finger: move the magnet", "Click, Space or round button: flip polarity (attract/repel)", "P or Esc: pause"],
+  "credits": ["Concept: Cédric Bernadac", "Game made by Z-Code"],
+  "cover": "cover.png"
+}

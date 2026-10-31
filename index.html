@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Magnet Panic</title>
+<style>
+:root{
+  --orange:#f2740b; --orange-dark:#c55c07; --blue:#1f6bff; --blue-deep:#1240b8;
+  --steel:#9aa6b2; --steel-dark:#5b6774; --metal:#e3e8ee; --metal-hi:#f6f9fc;
+  --ink:#1c2430; --ok:#2fbf71; --bad:#e5484d;
+  --hud-bg:rgba(238,243,248,.92); --panel:#f2f5f9;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none !important}
+html,body{height:100%}
+body{
+  font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+  background:#c8d0d9 radial-gradient(120% 90% at 50% 0%,#dfe6ee 0%,#b9c3cf 70%,#9daab8 100%);
+  color:var(--ink); display:flex;align-items:center;justify-content:center;
+  overflow:hidden; touch-action:none; user-select:none;-webkit-user-select:none;
+}
+#frame{position:relative;width:min(100vw,calc(100svh*(2/3)),560px);aspect-ratio:2/3;
+  background:var(--metal);border-radius:14px;overflow:hidden;
+  box-shadow:0 18px 50px rgba(20,30,45,.45),0 2px 0 rgba(255,255,255,.7) inset}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+/* ---------- HUD ---------- */
+#hud{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:8px;
+  padding:8px 10px;background:linear-gradient(180deg,var(--hud-bg),rgba(238,243,248,.78));
+  border-bottom:2px solid var(--steel);z-index:5;font-weight:700}
+#hud .grp{display:flex;align-items:center;gap:6px}
+#hudMission{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--steel-dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34%}
+#hudTime{font-size:17px;font-variant-numeric:tabular-nums;min-width:52px;text-align:center;
+  background:var(--ink);color:#fff;border-radius:6px;padding:1px 6px}
+#hudTime.low{background:var(--bad);animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:.55}}
+#hudCaps{display:flex;gap:3px;margin-left:auto}
+#hudCaps i{width:11px;height:14px;border-radius:3px 3px 5px 5px;background:#cdd6df;border:1.5px solid var(--steel-dark);display:block}
+#hudCaps i.on{background:var(--orange);border-color:var(--orange-dark);box-shadow:0 0 6px rgba(242,116,11,.7)}
+#hudCaps b{font-size:12px;color:var(--steel-dark);margin-left:3px}
+#hudHull{display:flex;gap:3px}
+#hudHull i{width:16px;height:16px;display:block}
+#hudHull i svg{display:block}
+#hudHull i.off{filter:grayscale(1) opacity(.35)}
+#hudCount{font-size:12px;color:var(--steel-dark)}
+/* polarité */
+#polBtn{position:absolute;right:12px;bottom:12px;z-index:5;width:74px;height:74px;border-radius:50%;
+  border:4px solid #fff;background:var(--orange);color:#fff;font-weight:800;font-size:11px;
+  box-shadow:0 6px 16px rgba(20,30,45,.4),0 0 0 2px var(--orange-dark);cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;touch-action:manipulation}
+#polBtn.rep{background:var(--blue);box-shadow:0 6px 16px rgba(20,30,45,.4),0 0 0 2px var(--blue-deep)}
+#polBtn svg{width:22px;height:22px}
+#polBtn:active{transform:scale(.93)}
+#pauseBtn{position:absolute;left:12px;bottom:12px;z-index:5;width:42px;height:42px;border-radius:10px;
+  border:2px solid var(--steel-dark);background:var(--hud-bg);color:var(--ink);font-size:17px;cursor:pointer;font-weight:800}
+/* ---------- panneaux ---------- */
+.screen{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;
+  background:rgba(28,36,48,.55);backdrop-filter:blur(2px)}
+.screen[hidden]{display:none}
+.panel{width:min(88%,420px);max-height:92%;overflow:auto;background:var(--panel);border-radius:14px;
+  border:2px solid var(--steel);box-shadow:0 16px 40px rgba(15,22,32,.5);padding:18px 20px 20px;text-align:center}
+.panel h1{font-size:34px;letter-spacing:.04em;line-height:1.05;margin:2px 0 2px}
+.panel h1 .mag{color:var(--orange)} .panel h1 .pan{color:var(--blue)}
+.panel .tagline{font-size:13px;color:var(--steel-dark);margin-bottom:12px}
+.panel h2{font-size:20px;margin-bottom:6px}
+.panel p{font-size:13.5px;line-height:1.45;margin:6px 0}
+.panel .small{font-size:12px;color:var(--steel-dark)}
+.btnrow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+button.big{font:inherit;font-weight:800;padding:10px 18px;border-radius:10px;border:2px solid var(--ink);
+  background:#fff;color:var(--ink);cursor:pointer;min-width:120px;box-shadow:0 3px 0 var(--steel-dark)}
+button.big:active{transform:translateY(2px);box-shadow:none}
+button.big.primary{background:var(--orange);border-color:var(--orange-dark);color:#fff;box-shadow:0 3px 0 var(--orange-dark)}
+button.big.blue{background:var(--blue);border-color:var(--blue-deep);color:#fff;box-shadow:0 3px 0 var(--blue-deep)}
+button.big.ghost{background:transparent;border-color:var(--steel);color:var(--steel-dark);box-shadow:none;min-width:0;padding:8px 12px}
+.mrow{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.mcard{display:flex;align-items:center;gap:12px;text-align:left;background:#fff;border:2px solid var(--steel);
+  border-radius:12px;padding:10px 12px;cursor:pointer}
+.mcard .num{flex:0 0 40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:18px;color:#fff;background:var(--blue);box-shadow:0 2px 0 var(--blue-deep)}
+.mcard:nth-child(2) .num{background:var(--orange);box-shadow:0 2px 0 var(--orange-dark)}
+.mcard:nth-child(3) .num{background:var(--ink);box-shadow:0 2px 0 #000}
+.mcard .tx{flex:1;min-width:0}
+.mcard .tx b{display:block;font-size:14.5px}
+.mcard .tx span{font-size:12px;color:var(--steel-dark);line-height:1.3;display:block}
+.mcard.locked{opacity:.45;cursor:not-allowed}
+.mcard .lock{font-size:18px}
+.mcard .done{color:var(--ok);font-weight:900;font-size:13px;white-space:nowrap}
+.kbd{display:inline-block;border:1.5px solid var(--steel-dark);border-bottom-width:3px;border-radius:5px;
+  padding:0 6px;font-size:11.5px;background:#fff;font-weight:700;margin:0 1px}
+.rules{text-align:left;font-size:13px;line-height:1.5;margin:8px 0}
+.rules li{margin:4px 0 4px 16px}
+.legend{display:flex;justify-content:center;gap:14px;margin:10px 0;flex-wrap:wrap}
+.legend div{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700}
+.dot{width:14px;height:14px;border-radius:50%;display:inline-block;border:2px solid rgba(0,0,0,.25)}
+#langRow{display:flex;gap:6px;justify-content:center;margin-top:12px}
+#langRow button{font:inherit;font-weight:800;font-size:12px;padding:5px 10px;border-radius:8px;border:2px solid var(--steel);
+  background:#fff;color:var(--steel-dark);cursor:pointer}
+#langRow button.on{border-color:var(--ink);color:#fff;background:var(--ink)}
+#statLine{display:flex;justify-content:center;gap:16px;font-size:14px;font-weight:800;margin:8px 0}
+#statLine span{color:var(--steel-dark);font-weight:600;font-size:12px;display:block}
+#toast{position:absolute;top:56px;left:50%;transform:translateX(-50%);z-index:6;background:var(--ink);color:#fff;
+  padding:6px 14px;border-radius:8px;font-weight:800;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+#toast.warn{background:var(--orange-dark)} #toast.bad{background:var(--bad)}
+#debugBox{position:absolute;left:8px;top:52px;z-index:7;font:11px/1.5 monospace;background:rgba(20,26,36,.8);
+  color:#9fe08a;padding:4px 8px;border-radius:6px;pointer-events:none}
+#tutBox{position:absolute;left:50%;bottom:104px;transform:translateX(-50%);z-index:6;width:min(86%,360px);
+  background:var(--hud-bg);border:2px solid var(--steel);border-radius:12px;padding:10px 12px;text-align:center;
+  font-weight:700;font-size:13.5px;line-height:1.4;box-shadow:0 6px 18px rgba(20,30,45,.35)}
+#tutBox .st{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);display:block;margin-bottom:2px}
+@media (max-height:560px){ #polBtn{width:60px;height:60px} }
+</style>
+</head>
+<body>
+<div id="frame">
+  <canvas id="cv"></canvas>
+
+  <div id="hud" hidden>
+    <div class="grp"><span id="hudMission"></span></div>
+    <div class="grp"><span id="hudTime">0:00</span></div>
+    <div class="grp" id="hudHull"></div>
+    <div class="grp" id="hudCaps"><b id="hudCount">0/10</b></div>
+  </div>
+  <div id="toast"></div>
+  <div id="tutBox" hidden><span class="st" id="tutStep"></span><span id="tutText"></span></div>
+  <div id="debugBox" hidden></div>
+
+  <button id="polBtn" hidden></button>
+  <button id="pauseBtn" hidden aria-label="Pause">II</button>
+
+  <!-- HOME -->
+  <div class="screen" id="scrHome" hidden>
+    <div class="panel">
+      <h1><span class="mag">MAGNET</span> <span class="pan">PANIC</span></h1>
+      <div class="tagline" data-i18n="tagline"></div>
+      <div class="mrow" id="missionList"></div>
+      <div class="btnrow">
+        <button class="big blue" id="btnTuto"></button>
+        <button class="big ghost" id="btnHelp"></button>
+      </div>
+      <div id="langRow"></div>
+      <p class="small" data-i18n="credits"></p>
+    </div>
+  </div>
+
+  <!-- BRIEF -->
+  <div class="screen" id="scrBrief" hidden>
+    <div class="panel">
+      <h2 id="briefTitle"></h2>
+      <p id="briefDesc"></p>
+      <div class="rules" id="briefRules"></div>
+      <div class="btnrow">
+        <button class="big primary" id="btnGo"></button>
+        <button class="big ghost" id="btnBriefBack"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAUSE -->
+  <div class="screen" id="scrPause" hidden>
+    <div class="panel">
+      <h2 data-i18n="paused"></h2>
+      <p class="small" data-i18n="pauseHint"></p>
+      <div class="btnrow">
+        <button class="big primary" id="btnResume"></button>
+        <button class="big ghost" id="btnPauseHelp"></button>
+        <button class="big ghost" id="btnQuit"></button>
+      </div>
+      <div id="langRow2" style="display:flex;gap:6px;justify-content:center;margin-top:12px"></div>
+    </div>
+  </div>
+
+  <!-- END -->
+  <div class="screen" id="scrEnd" hidden>
+    <div class="panel">
+      <h2 id="endTitle"></h2>
+      <div id="statLine"></div>
+      <p id="endReason"></p>
+      <p class="small" id="endBest"></p>
+      <div class="btnrow">
+        <button class="big primary" id="btnNext"></button>
+        <button class="big" id="btnRetry"></button>
+        <button class="big ghost" id="btnEndHome"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HELP -->
+  <div class="screen" id="scrHelp" hidden>
+    <div class="panel">
+      <h2 data-i18n="helpTitle"></h2>
+      <div class="legend">
+        <div><span class="dot" style="background:#fff"></span><span data-i18n="lgCapsule"></span></div>
+        <div><span class="dot" style="background:#7d8b99"></span><span data-i18n="lgDebris"></span></div>
+        <div><span class="dot" style="background:#39434e;width:18px;height:18px;border-radius:4px"></span><span data-i18n="lgHeavy"></span></div>
+      </div>
+      <ul class="rules" data-i18n-mlp="helpRules"></ul>
+      <p class="small" data-i18n-mlp="helpControls"></p>
+      <div class="btnrow"><button class="big" id="btnHelpClose"></button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* MAGNET PANIC — a LOB7 standalone static game.
+   Concept: Cédric Bernadac. Made by Z-Code (agent). MIT license.
+   100% inline, no network, no external assets. Fixed-step 60 Hz physics. */
+// ===AIMANT-CORE-BEGIN===
+const AIMANT_VERSION = "1.0.0";
+const W = 480, H = 720;                 // world units
+const WALL = 16;                        // inner walls thickness
+const DT = 1 / 60;                      // fixed physics step
+const FIELD_R = 200;                    // magnet reach
+const FMAX = 300;                       // magnet force cap (accel = F/m)
+const DAMP = 0.15;                      // linear drag per second
+const VCAP = 700;                       // absolute speed cap
+const REST_WALL = 0.5, REST_OBJ = 0.72;
+const GOAL = 10;                        // capsules to save
+const BAY = { x: 158, y: 624, w: 164, h: 80 };   // recovery bay (mouth = top face)
+const V_SAFE = 130;                     // docking speed limit
+const V_CRASH_BAY = 240;                // capsule destroyed on bay above this
+const V_CRASH_WALL = 460;               // capsule lost on wall above this
+const V_KILL = { debris: 170, heavy: 110 };      // rel. speed that kills a capsule
+const V_DMG = { debris: 200, heavy: 120 };       // wall/bay hit that damages station
+const GRACE = 1.0;                      // s between station damages
+const MASS = { capsule: 1, debris: 1.3, heavy: 3.2 };
+const RAD = { capsule: 11, debris: 13, heavy: 20 };
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const MISSIONS = [
+  {
+    key: "m1", idx: 0, dur: 160,
+    capI: 7, debI: 10, heaI: 0,
+    capMax: 5, debMax: 5, heaMax: 0,
+    sides: ["top"], heavy: false, multi: false
+  },
+  {
+    key: "m2", idx: 1, dur: 170,
+    capI: 6.5, debI: 8.5, heaI: 15,
+    capMax: 5, debMax: 5, heaMax: 2,
+    sides: ["top"], heavy: true, multi: false
+  },
+  {
+    key: "m3", idx: 2, dur: 180,
+    capI: 6, debI: 7.5, heaI: 13,
+    capMax: 6, debMax: 6, heaMax: 2,
+    sides: ["top", "left", "right"], heavy: true, multi: true
+  }
+];
+
+function makeBody(cfg) {
+  return {
+    id: cfg.id, type: cfg.type, x: cfg.x, y: cfg.y,
+    px: cfg.x, py: cfg.y, vx: cfg.vx, vy: cfg.vy,
+    r: cfg.r, m: cfg.m, ang: cfg.ang || 0, angV: cfg.angV || 0,
+    poly: cfg.poly || null, born: cfg.t || 0, flash: 0
+  };
+}
+
+/* Core game: pure logic, no DOM. mode: 'attract' | 'tutorial' | 'mission' */
+function createGame(opts) {
+  const mode = opts.mode || "mission";
+  const mission = MISSIONS[opts.mission != null ? opts.mission : 0];
+  const rng = mulberry32(opts.seed != null ? opts.seed : 12345);
+  const st = {
+    mode, mission, t: 0, timeLeft: mode === "mission" ? mission.dur : Infinity,
+    saved: 0, lost: 0, integrity: 3, score: 0, over: false, won: false, reason: "",
+    magnet: { x: W / 2, y: H * 0.42, tx: W / 2, ty: H * 0.42, pol: 1 },
+    objects: [], events: [], damageGrace: 0, nextId: 1,
+    spawns: { cap: 1.2, deb: 3.5, hea: 6 },
+    capSpawned: 0, debSpawned: 0, heaSpawned: 0,
+    invertCount: 0, tutPhase: 0, tutHold: 0, tutTries: 0,
+    attractT: 0
+  };
+  function ev(e) { st.events.push(e); }
+  function count(type) { let n = 0; for (const o of st.objects) if (o.type === type) n++; return n; }
+
+  function genPoly(r) {
+    const n = 6 + Math.floor(rng() * 3), poly = [];
+    for (let i = 0; i < n; i++) poly.push(r * (0.72 + rng() * 0.42));
+    return poly;
+  }
+  function spawn(type, side) {
+    const speed = type === "heavy" ? 38 + rng() * 38 : 55 + rng() * 68;
+    const m = 46; // margin along the side
+    let x, y, nx = 0, ny = 0;
+    if (!side) side = mission.sides.length === 1 ? "top" : mission.sides[Math.floor(rng() * mission.sides.length)];
+    if (side === "top") { x = m + rng() * (W - 2 * m); y = WALL + 26; ny = 1; }
+    else if (side === "left") { x = WALL + 26; y = m + rng() * (H - 2 * m - 120); nx = 1; }
+    else { x = W - WALL - 26; y = m + rng() * (H - 2 * m - 120); nx = -1; }
+    const drift = (rng() - 0.5) * 0.9; // ±~25°
+    const ca = Math.cos(drift), sa = Math.sin(drift);
+    const dx = nx * ca - ny * sa, dy = nx * sa + ny * ca;
+    const r = type === "capsule" ? RAD.capsule : type === "debris" ? RAD.debris * (0.9 + rng() * 0.25) : RAD.heavy;
+    for (let tries = 0; tries < 8; tries++) {
+      let ok = true;
+      for (const o of st.objects) {
+        const d2 = (o.x - x) ** 2 + (o.y - y) ** 2;
+        if (d2 < (o.r + r + 6) ** 2) { ok = false; break; }
+      }
+      if (ok) break;
+      x = WALL + 40 + rng() * (W - 2 * WALL - 80);
+      if (side !== "top") y = WALL + 40 + rng() * (H - 2 * WALL - 160);
+    }
+    const b = makeBody({
+      id: st.nextId++, type, x, y, vx: dx * speed, vy: dy * speed,
+      r, m: MASS[type], ang: rng() * 6.28, angV: (rng() - 0.5) * 1.6,
+      poly: type !== "capsule" ? genPoly(r) : null, t: st.t
+    });
+    st.objects.push(b);
+    if (type === "capsule") st.capSpawned++; else if (type === "debris") st.debSpawned++; else st.heaSpawned++;
+    ev({ type: "spawn", kind: type, x: b.x, y: b.y });
+    return b;
+  }
+  function removeBody(b, idx) { st.objects.splice(idx, 1); }
+  function destroyCapsule(b, cause) {
+    const idx = st.objects.indexOf(b); if (idx >= 0) removeBody(b, idx);
+    st.lost++;
+    ev({ type: cause, x: b.x, y: b.y });
+  }
+  function damageStation(b) {
+    if (st.damageGrace > 0 || st.over) return;
+    st.damageGrace = GRACE;
+    st.integrity--;
+    ev({ type: "damage", x: b.x, y: b.y, integrity: st.integrity });
+    if (st.integrity <= 0) endGame(false, "hull");
+  }
+  function endGame(won, reason) {
+    if (st.over) return;
+    st.over = true; st.won = won; st.reason = reason;
+    if (won) {
+      st.score += st.integrity * 50 + Math.ceil(Math.max(0, st.timeLeft)) * 5;
+      ev({ type: "win", score: st.score });
+    } else ev({ type: "lose", reason, score: st.score });
+  }
+
+  /* ---- magnetic field ---- */
+  function applyField() {
+    const mg = st.magnet;
+    for (const b of st.objects) {
+      const dx = mg.x - b.x, dy = mg.y - b.y;
+      const d = Math.hypot(dx, dy);
+      if (d >= FIELD_R || d < 0.5) continue;
+      const fall = 1 - d / FIELD_R;
+      const f = FMAX * fall * fall;           // capped by construction, ~0 at reach
+      const a = (f / b.m) * DT;
+      b.vx += (mg.pol * a * dx) / d;
+      b.vy += (mg.pol * a * dy) / d;
+    }
+  }
+  /* ---- walls ---- */
+  function walls(b) {
+    const L = WALL + b.r, R = W - WALL - b.r, T = WALL + b.r, B = H - WALL - b.r;
+    let hit = null;
+    if (b.x < L) { if (b.vx < 0) { hit = { imp: -b.vx }; b.vx = -b.vx * REST_WALL; } b.x = L; }
+    else if (b.x > R) { if (b.vx > 0) { hit = { imp: b.vx }; b.vx = -b.vx * REST_WALL; } b.x = R; }
+    if (b.y < T) { if (b.vy < 0) { hit = { imp: -b.vy }; b.vy = -b.vy * REST_WALL; } b.y = T; }
+    else if (b.y > B) { if (b.vy > 0) { hit = { imp: b.vy }; b.vy = -b.vy * REST_WALL; } b.y = B; }
+    if (hit) {
+      b.angV *= 0.9;
+      if (b.type !== "capsule" && hit.imp > V_DMG[b.type]) {
+        if (st.mode !== "attract" && st.mode !== "tutorial") damageStation(b);
+      } else if (b.type === "capsule" && hit.imp > V_CRASH_WALL) {
+        destroyCapsule(b, "crashWall");
+      } else if (hit.imp > 70) ev({ type: "clang", x: b.x, y: b.y, imp: hit.imp });
+    }
+  }
+  /* ---- bay ---- */
+  function bay(b, idx) {
+    const cx = Math.max(BAY.x, Math.min(b.x, BAY.x + BAY.w));
+    const cy = Math.max(BAY.y, Math.min(b.y, BAY.y + BAY.h));
+    const dx = b.x - cx, dy = b.y - cy, d2 = dx * dx + dy * dy;
+    if (d2 >= b.r * b.r) return;
+    if (st.mode === "attract") return;
+    const sp = Math.hypot(b.vx, b.vy);
+    if (b.type === "capsule" && sp <= V_SAFE) {           // gentle contact = saved
+      removeBody(b, idx);
+      st.saved++; st.score += 100;
+      ev({ type: "save", x: b.x, y: b.y, saved: st.saved, score: st.score });
+      if (st.mode === "mission" && st.saved >= GOAL) endGame(true, "goal");
+      return;
+    }
+    // solid rebound on nearest face
+    let nx = 0, ny = 0;
+    if (d2 < 0.01) { ny = -1; }
+    else if (Math.abs(dx) * BAY.h > Math.abs(dy) * BAY.w) nx = Math.sign(dx);
+    else ny = Math.sign(dy);
+    const vn = b.vx * nx + b.vy * ny;
+    if (vn < 0) { b.vx -= (1 + REST_WALL) * vn * nx; b.vy -= (1 + REST_WALL) * vn * ny; }
+    // push out of the box
+    if (nx) b.x = cx + nx * b.r;
+    else if (ny) b.y = cy + ny * b.r;
+    const imp = -vn;
+    if (b.type === "capsule") {
+      if (sp > V_CRASH_BAY) destroyCapsule(b, "crashBay");
+      else if (imp > 60) ev({ type: "tooFast", x: b.x, y: BAY.y - 8 });
+    } else if (imp > V_DMG[b.type]) {
+      if (st.mode !== "tutorial") damageStation(b);
+    }
+    if (imp > 70) ev({ type: "clang", x: b.x, y: b.y, imp });
+  }
+  /* ---- pairwise ---- */
+  function collide(a, b, ia, ib) {
+    const dx = b.x - a.x, dy = b.y - a.y, rs = a.r + b.r;
+    const d2 = dx * dx + dy * dy;
+    if (d2 >= rs * rs || d2 === 0) return;
+    const d = Math.sqrt(d2), nx = dx / d, ny = dy / d;
+    const invA = 1 / a.m, invB = 1 / b.m, inv = invA + invB;
+    const push = (rs - d) / inv;
+    a.x -= nx * push * invA; a.y -= ny * push * invA;
+    b.x += nx * push * invB; b.y += ny * push * invB;
+    const rvx = b.vx - a.vx, rvy = b.vy - a.vy;
+    const vn = rvx * nx + rvy * ny;
+    if (vn >= 0) return;
+    const j = -(1 + REST_OBJ) * vn / inv;
+    a.vx -= j * invA * nx; a.vy -= j * invA * ny;
+    b.vx += j * invB * nx; b.vy += j * invB * ny;
+    a.angV += j * 0.002; b.angV -= j * 0.002;
+    const rel = Math.hypot(rvx, rvy);
+    const killer = a.type === "capsule" ? b : b.type === "capsule" ? a : null; // the non-capsule body, if any
+    if (killer && killer.type !== "capsule" && rel > V_KILL[killer.type]) {
+      if (st.mode === "tutorial") {
+        ev({ type: "tooFast", x: killer.x, y: killer.y });
+      } else if (st.mode === "mission") destroyCapsule(killer === a ? b : a, "killed");
+    } else if (-vn > 90) ev({ type: "clang", x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, imp: -vn });
+  }
+
+  /* ---- tutorial script ---- */
+  function tutorialStep() {
+    const caps = st.objects.filter(o => o.type === "capsule");
+    if (!caps.length) { spawn("capsule"); return; } // always one capsule to work with
+    const c = caps[0];
+    const d = Math.hypot(c.x - st.magnet.x, c.y - st.magnet.y);
+    if (st.tutPhase === 0) {
+      if (d < 70) { st.tutHold += DT; if (st.tutHold > 0.7) { st.tutPhase = 1; ev({ type: "tutStep", phase: 1 }); } }
+      else st.tutHold = Math.max(0, st.tutHold - DT * 0.5);
+      if (c.y > 560 && c.vy > 0 && d > 200) c.vy = -30; // keep it reachable
+    } else if (st.tutPhase === 1) {
+      if (d > 180) { st.tutPhase = 2; ev({ type: "tutStep", phase: 2 }); }
+      if (c.y > 620) c.vy = -40; // do not let it sneak into the bay during step 2
+    } else if (st.tutPhase === 2 && st.saved >= 1 && !st.over) {
+      st.over = true;
+      ev({ type: "tutDone" });
+    }
+  }
+
+  function step() {
+    if (st.over) return;
+    st.t += DT;
+    if (st.damageGrace > 0) st.damageGrace -= DT;
+    // magnet follows pointer smoothly
+    const mg = st.magnet, k = Math.min(1, DT * 14);
+    mg.x += (mg.tx - mg.x) * k; mg.y += (mg.ty - mg.y) * k;
+    mg.x = Math.max(WALL + 4, Math.min(W - WALL - 4, mg.x));
+    mg.y = Math.max(WALL + 4, Math.min(H - WALL - 4, mg.y));
+
+    // spawn schedule
+    if (st.mode === "mission") {
+      const M = st.mission, s = st.spawns;
+      s.cap -= DT; s.deb -= DT;
+      if (M.heaI > 0) s.hea -= DT;
+      if (s.cap <= 0) {
+        if (count("capsule") < M.capMax) spawn("capsule");
+        s.cap = M.capI * (0.75 + rng() * 0.5);
+      }
+      if (s.deb <= 0) {
+        if (count("debris") < M.debMax) spawn("debris");
+        s.deb = M.debI * (0.75 + rng() * 0.5);
+      }
+      if (M.heaI > 0 && s.hea <= 0) {
+        if (count("heavy") < M.heaMax) spawn("heavy");
+        s.hea = M.heaI * (0.8 + rng() * 0.4);
+      }
+      st.timeLeft -= DT;
+      if (st.timeLeft <= 0) { st.timeLeft = 0; endGame(false, "time"); }
+      if (Math.ceil(st.timeLeft) <= 10 && Math.ceil(st.timeLeft) !== Math.ceil(st.timeLeft + DT)) ev({ type: "tick", n: Math.ceil(st.timeLeft) });
+    } else if (st.mode === "attract") {
+      st.attractT += DT;
+      const M = MISSIONS[2], s = st.spawns;
+      s.cap -= DT; s.deb -= DT; s.hea -= DT;
+      if (s.cap <= 0 && count("capsule") < 3) { spawn("capsule"); s.cap = 6 * (0.7 + rng() * 0.6); }
+      if (s.deb <= 0 && count("debris") < 3) { spawn("debris"); s.deb = 7 * (0.7 + rng() * 0.6); }
+      if (s.hea <= 0 && count("heavy") < 1) { spawn("heavy"); s.hea = 18; }
+      // ghost magnet
+      const gt = st.attractT;
+      mg.tx = W / 2 + Math.sin(gt * 0.5) * 130;
+      mg.ty = H * 0.42 + Math.sin(gt * 0.83 + 1.2) * 90;
+      if (st.invertAt == null || gt > st.invertAt) { mg.pol *= -1; ev({ type: "invert", pol: mg.pol }); st.invertAt = gt + 3 + rng() * 3; }
+      if (st.objects.length > 8) st.objects.splice(0, st.objects.length - 8);
+    } else if (st.mode === "tutorial") {
+      tutorialStep();
+    }
+
+    applyField();
+    const damp = Math.max(0, 1 - DAMP * DT);
+    for (const b of st.objects) {
+      b.px = b.x; b.py = b.y;
+      b.vx *= damp; b.vy *= damp;
+      const sp = Math.hypot(b.vx, b.vy);
+      if (sp > VCAP) { b.vx *= VCAP / sp; b.vy *= VCAP / sp; }
+      b.x += b.vx * DT; b.y += b.vy * DT;
+      b.ang += b.angV * DT; b.angV *= 0.995;
+      if (b.flash > 0) b.flash -= DT;
+    }
+    for (let i = st.objects.length - 1; i >= 0; i--) {
+      const b = st.objects[i];
+      walls(b);
+      if (st.objects[i] === b) bay(b, i); // bay may remove it
+    }
+    for (let i = 0; i < st.objects.length; i++)
+      for (let j = i + 1; j < st.objects.length; j++)
+        collide(st.objects[i], st.objects[j], i, j);
+    // hard sanity clamp (never outside, never NaN, never runaway)
+    for (const b of st.objects) {
+      if (!isFinite(b.x) || !isFinite(b.y) || !isFinite(b.vx) || !isFinite(b.vy)) {
+        b.x = W / 2; b.y = H / 3; b.vx = 0; b.vy = 0;
+      }
+      b.x = Math.max(WALL + b.r * 0.5, Math.min(W - WALL - b.r * 0.5, b.x));
+      b.y = Math.max(WALL + b.r * 0.5, Math.min(H - WALL - b.r * 0.5, b.y));
+      const sp2 = Math.hypot(b.vx, b.vy);
+      if (sp2 > VCAP * 1.05) { b.vx *= VCAP / sp2; b.vy *= VCAP / sp2; }
+    }
+  }
+
+  return {
+    st, step,
+    setPointer(x, y) { st.magnet.tx = x; st.magnet.ty = y; },
+    invert() {
+      if (st.over) return;
+      st.magnet.pol *= -1; st.invertCount++;
+      ev({ type: "invert", pol: st.magnet.pol });
+    },
+    drainEvents() { const e = st.events; st.events = []; return e; },
+    snapshot() {
+      return {
+        mode: st.mode, t: st.t, timeLeft: st.timeLeft, saved: st.saved, lost: st.lost,
+        integrity: st.integrity, score: st.score, over: st.over, won: st.won, reason: st.reason,
+        goal: GOAL, magnet: { x: st.magnet.x, y: st.magnet.y, pol: st.magnet.pol },
+        objects: st.objects.map(o => ({ id: o.id, type: o.type, x: o.x, y: o.y, vx: o.vx, vy: o.vy, r: o.r })),
+        capSpawned: st.capSpawned, debSpawned: st.debSpawned, heaSpawned: st.heaSpawned,
+        tutPhase: st.tutPhase
+      };
+    }
+  };
+}
+// ===AIMANT-CORE-END===
+
+/* ===================== i18n ===================== */
+const I18N = {
+  en: {
+    tagline: "Salvage station K-7 — the magnet obeys you. The debris does not care.",
+    credits: "Concept: Cédric Bernadac · Game made by Z-Code (AI agent) · MIT",
+    tutorial: "Tutorial", help: "How to play", helpTitle: "How to play",
+    play: "Play", go: "GO!", back: "Back", close: "Close", resume: "Resume",
+    retry: "Retry", next: "Next mission", home: "Home", quit: "Abandon",
+    paused: "Paused", pauseHint: "The field is frozen. The debris is patient.",
+    goal: "Save {n} capsules before the timer runs out.",
+    m1: "First Haul", m2: "Heavy Cargo", m3: "All Vectors",
+    m1d: "Capsules and drifting debris enter from the top.",
+    m2d: "New hazard: heavy freight blocks. Massive, slow, brutal on impact.",
+    m3d: "Traffic from three sides. No habit, only skill.",
+    mDone: "Cleared",
+    rules: "Rules", controls: "Controls",
+    helpRules: [
+      "Move the magnet with the mouse or your finger — everything metal feels the pull.",
+      "Click, tap the round button or press Space to flip polarity: orange pulls, blue pushes.",
+      "The force fades with distance and is capped: close objects are steerable, far ones drift.",
+      "Capsules must enter the blue bay GENTLY (green mouth). Too fast: they bounce. Way too fast: they are lost.",
+      "Debris hitting the hull or the bay too fast costs 1 of 3 hull points. Debris ramming a capsule destroys it.",
+      "Save 10 capsules before the timer ends. The station survives on your restraint."
+    ],
+    helpControls: [
+      "Mouse / finger: move the magnet",
+      "Click · Space · round button: flip polarity",
+      "P or Esc: pause"
+    ],
+    lgCapsule: "Capsule — save it", lgDebris: "Debris — deflect it", lgHeavy: "Heavy block — fear it",
+    attract: "ATTRACT", repel: "PUSH",
+    hull: "Hull", saved: "Saved", time: "Time",
+    tut0: "Move the magnet near the capsule: attraction pulls it in.",
+    tut1: "Flip the polarity (click / Space / button) and push it away.",
+    tut2: "Now dock it in the blue bay — slowly. Green mouth = gentle speed.",
+    tutStep: "Step {n} / 3",
+    tutDone: "Perfect. You are ready for the first mission.",
+    tooFast: "TOO FAST!", capsuleLost: "CAPSULE LOST", hullDamage: "HULL DAMAGE",
+    savePt: "+100",
+    winTitle: "SHIFT COMPLETE", loseTitle: "SHIFT FAILED",
+    reasonGoal: "All capsules recovered. The bay crew salutes you.",
+    reasonHull: "Hull integrity lost. K-7 sounds the evacuation.",
+    reasonTime: "Time over. Not enough capsules docked.",
+    yourScore: "Your score", best: "Best", newBest: "New best!",
+    savedStat: "Capsules", integStat: "Hull", timeStat: "Time left",
+    bayLabel: "SALVAGE BAY 01", resetProg: "Reset progression",
+    resetDone: "Progression reset."
+  },
+  fr: {
+    tagline: "Station de récupération K-7 — l'aimant vous obéit. Les débris, eux, s'en moquent.",
+    credits: "Concept : Cédric Bernadac · Jeu réalisé par Z-Code (agent IA) · MIT",
+    tutorial: "Tutoriel", help: "Comment jouer", helpTitle: "Comment jouer",
+    play: "Jouer", go: "GO !", back: "Retour", close: "Fermer", resume: "Reprendre",
+    retry: "Rejouer", next: "Mission suivante", home: "Accueil", quit: "Abandonner",
+    paused: "Pause", pauseHint: "Le champ est figé. Les débris, eux, sont patients.",
+    goal: "Sauvez {n} capsules avant la fin du temps imparti.",
+    m1: "Première noria", m2: "Charges lourdes", m3: "Tous azimuts",
+    m1d: "Capsules et débris dérivants entrent par le haut.",
+    m2d: "Nouveau danger : blocs de fret lourds. Massifs, lents, brutaux à l'impact.",
+    m3d: "Trafic par trois côtés. Plus d'habitude, que du talent.",
+    mDone: "Réussie",
+    rules: "Règles", controls: "Commandes",
+    helpRules: [
+      "Déplacez l'aimant à la souris ou au doigt — tout ce qui est métallique sent la force.",
+      "Clic, bouton rond ou Espace : inversez la polarité — orange attire, bleu repousse.",
+      "La force décroît avec la distance et reste plafonnée : près, on pilote ; loin, on dérive.",
+      "Les capsules doivent entrer dans la baie bleue EN DOUCEUR (bouche verte). Trop vite : rebond. Beaucoup trop vite : capsule perdue.",
+      "Un débris qui frappe la coque ou la baie trop vite coûte 1 point d'intégrité sur 3. Un débris qui percute une capsule la détruit.",
+      "Sauvez 10 capsules avant la fin du chrono. La station ne survit qu'à votre retenue."
+    ],
+    helpControls: [
+      "Souris / doigt : déplacer l'aimant",
+      "Clic · Espace · bouton rond : inverser la polarité",
+      "P ou Échap : pause"
+    ],
+    lgCapsule: "Capsule — sauvez-la", lgDebris: "Débris — écartez-le", lgHeavy: "Bloc lourd — redoutez-le",
+    attract: "ATTRACTION", repel: "REPOUSSER",
+    hull: "Coque", saved: "Sauvées", time: "Temps",
+    tut0: "Approchez l'aimant de la capsule : l'attraction la capture.",
+    tut1: "Inversez la polarité (clic / Espace / bouton) et repoussez-la.",
+    tut2: "Amarrez-la dans la baie bleue — doucement. Bouche verte = vitesse sûre.",
+    tutStep: "Étape {n} / 3",
+    tutDone: "Parfait. Vous êtes prêt pour la première mission.",
+    tooFast: "TROP VITE !", capsuleLost: "CAPSULE PERDUE", hullDamage: "DÉGÂT COQUE",
+    savePt: "+100",
+    winTitle: "SERVICE TERMINÉ", loseTitle: "SERVICE ÉCHOUÉ",
+    reasonGoal: "Toutes les capsules récupérées. L'équipe de la baie vous salue.",
+    reasonHull: "Intégrité de coque perdue. K-7 déclenche l'évacuation.",
+    reasonTime: "Temps écoulé. Pas assez de capsules amarrées.",
+    yourScore: "Votre score", best: "Record", newBest: "Nouveau record !",
+    savedStat: "Capsules", integStat: "Coque", timeStat: "Temps restant",
+    bayLabel: "BAIE DE RÉCUP. 01", resetProg: "Réinitialiser la progression",
+    resetDone: "Progression réinitialisée."
+  },
+  es: {
+    tagline: "Estación de recuperación K-7 — el imán te obedece. A los escombros les da igual.",
+    credits: "Concepto: Cédric Bernadac · Juego creado por Z-Code (agente IA) · MIT",
+    tutorial: "Tutorial", help: "Cómo jugar", helpTitle: "Cómo jugar",
+    play: "Jugar", go: "¡VAMOS!", back: "Volver", close: "Cerrar", resume: "Continuar",
+    retry: "Reintentar", next: "Misión siguiente", home: "Inicio", quit: "Abandonar",
+    paused: "Pausa", pauseHint: "El campo está congelado. Los escombros saben esperar.",
+    goal: "Salva {n} cápsulas antes de que se acabe el tiempo.",
+    m1: "Primera ronda", m2: "Carga pesada", m3: "Todos los rumbos",
+    m1d: "Cápsulas y escombros entran por arriba.",
+    m2d: "Nuevo peligro: bloques de carga pesada. Masivos, lentos, brutales al golpear.",
+    m3d: "Tráfico por tres lados. Sin rutina, solo talento.",
+    mDone: "Completada",
+    rules: "Reglas", controls: "Controles",
+    helpRules: [
+      "Mueve el imán con el ratón o el dedo — todo lo metálico siente el tirón.",
+      "Clic, botón redondo o Espacio: invierte la polaridad — naranja atrae, azul empuja.",
+      "La fuerza cae con la distancia y tiene tope: cerca se pilota, lejos se deriva.",
+      "Las cápsulas deben entrar en la bahía azul SUAVEMENTE (boca verde). Rápido: rebota. Muy rápido: se pierde.",
+      "Un escombro que golpea el casco o la bahía demasiado fuerte quita 1 de 3 puntos. Un escombro que embiste una cápsula la destruye.",
+      "Salva 10 cápsulas antes del final del cronómetro. La estación sobrevive a tu contención."
+    ],
+    helpControls: [
+      "Ratón / dedo: mover el imán",
+      "Clic · Espacio · botón redondo: invertir la polaridad",
+      "P o Esc: pausa"
+    ],
+    lgCapsule: "Cápsula — sálvala", lgDebris: "Escombro — apártalo", lgHeavy: "Bloque pesado — témelo",
+    attract: "ATRAER", repel: "EMPUJAR",
+    hull: "Casco", saved: "Salvadas", time: "Tiempo",
+    tut0: "Acerca el imán a la cápsula: la atracción la captura.",
+    tut1: "Invierte la polaridad (clic / Espacio / botón) y empújala lejos.",
+    tut2: "Amarra en la bahía azul — despacio. Boca verde = velocidad segura.",
+    tutStep: "Paso {n} / 3",
+    tutDone: "Perfecto. Estás listo para la primera misión.",
+    tooFast: "¡DEMASIADO RÁPIDO!", capsuleLost: "CÁPSULA PERDIDA", hullDamage: "DAÑO DEL CASCO",
+    savePt: "+100",
+    winTitle: "TURNO COMPLETO", loseTitle: "TURNO FALLIDO",
+    reasonGoal: "Todas las cápsulas recuperadas. La tripulación te saluda.",
+    reasonHull: "Integridad del casco perdida. K-7 activa la evacuación.",
+    reasonTime: "Tiempo agotado. No bastaron las cápsulas.",
+    yourScore: "Puntuación", best: "Récord", newBest: "¡Nuevo récord!",
+    savedStat: "Cápsulas", integStat: "Casco", timeStat: "Tiempo restante",
+    bayLabel: "BAHÍA DE RESCATE 01", resetProg: "Reiniciar progreso",
+    resetDone: "Progreso reiniciado."
+  }
+};
+
+/* ===================== storage (safe) ===================== */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("aimant." + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("aimant." + k, JSON.stringify(v)); } catch (e) { } }
+};
+
+/* ===================== audio ===================== */
+const Sfx = (() => {
+  let ctx = null, master = null, muted = store.get("mute", false);
+  function ensure() {
+    if (ctx) return true;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return false;
+      ctx = new AC(); master = ctx.createGain();
+      master.gain.value = muted ? 0 : 0.5; master.connect(ctx.destination);
+      return true;
+    } catch (e) { return false; }
+  }
+  function env(g, t0, a, d, peak) {
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(peak, t0 + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d);
+  }
+  function tone(freq, freq2, dur, type, vol, when) {
+    if (!ensure()) return;
+    const t0 = ctx.currentTime + (when || 0);
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || "sine"; o.frequency.setValueAtTime(freq, t0);
+    if (freq2) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq2), t0 + dur);
+    env(g, t0, 0.008, dur, vol || 0.2);
+    o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+  function noise(dur, vol, hp) {
+    if (!ensure()) return;
+    const t0 = ctx.currentTime;
+    const n = Math.floor(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const f = ctx.createBiquadFilter(); f.type = hp ? "highpass" : "lowpass"; f.frequency.value = hp || 900;
+    const g = ctx.createGain(); g.gain.value = vol || 0.2;
+    src.connect(f); f.connect(g); g.connect(master); src.start(t0);
+  }
+  return {
+    get muted() { return muted; },
+    toggle() { muted = !muted; store.set("mute", muted); if (master) master.gain.value = muted ? 0 : 0.5; return muted; },
+    unlock() { if (ensure() && ctx.state === "suspended") ctx.resume(); },
+    invert(pol) { tone(pol > 0 ? 180 : 340, pol > 0 ? 360 : 160, 0.14, "triangle", 0.16); },
+    save() { tone(660, 0, 0.1, "sine", 0.2); tone(880, 0, 0.12, "sine", 0.2, 0.07); tone(1320, 0, 0.2, "sine", 0.16, 0.14); },
+    clang(imp) { const v = Math.min(0.3, 0.06 + imp / 2000); tone(210 + Math.random() * 60, 90, 0.08, "triangle", v); noise(0.05, v * 0.7, 2400); },
+    tooFast() { tone(520, 300, 0.1, "square", 0.08); },
+    crash() { noise(0.3, 0.32, 0); tone(180, 55, 0.32, "sawtooth", 0.22); },
+    damage() { tone(110, 70, 0.35, "square", 0.3); tone(70, 50, 0.4, "sawtooth", 0.22, 0.02); noise(0.18, 0.2, 0); },
+    tick() { tone(980, 0, 0.05, "square", 0.1); },
+    win() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0, 0.22, "triangle", 0.2, i * 0.12)); },
+    lose() { [330, 262, 196, 147].forEach((f, i) => tone(f, 0, 0.3, "triangle", 0.2, i * 0.16)); }
+  };
+})();
+
+/* ===================== UI ===================== */
+const $ = (s) => document.querySelector(s);
+const cv = $("#cv"), ctx = cv.getContext("2d");
+const UI = {
+  lang: store.get("lang", (navigator.language || "en").slice(0, 2).toLowerCase() === "fr" ? "fr" : (navigator.language || "en").slice(0, 2).toLowerCase() === "es" ? "es" : "en"),
+  screen: "home", // home | brief | play | pause | end | help
+  game: null, raf: 0, lastT: 0, acc: 0, alpha: 0,
+  fps: 0, fpsN: 0, fpsT: 0,
+  parts: [], shake: 0, dmgFlash: 0, muted: store.get("mute", false),
+  reduced: store.get("reduced", false),
+  unlocked: store.get("unlocked", 1), // count of unlocked missions
+  best: store.get("best", { m1: 0, m2: 0, m3: 0 }),
+  curMission: 0, endInfo: null, tutSeen: store.get("tutSeen", false),
+  helpBack: "home", briefBackTo: "home"
+};
+const qs = new URLSearchParams(location.search);
+const DEBUG = qs.get("debug") === "1";
+function t(key) {
+  const d = I18N[UI.lang] || I18N.en;
+  return d[key] != null ? d[key] : I18N.en[key] != null ? I18N.en[key] : key;
+}
+function fmtTime(s) {
+  if (!isFinite(s)) return "∞";
+  s = Math.max(0, Math.ceil(s));
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+}
+
+/* ---- canvas sizing ---- */
+let scale = 1, dpr = 1;
+function resize() {
+  const r = $("#frame").getBoundingClientRect();
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  scale = Math.min(cv.width / W, cv.height / H);
+}
+window.addEventListener("resize", resize);
+if (window.ResizeObserver) new ResizeObserver(resize).observe($("#frame"));
+
+/* ---- background prerender ---- */
+let bg = null;
+function buildBG() {
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const g = c.getContext("2d");
+  const rr = mulberry32(777);
+  g.fillStyle = "#dfe5ec"; g.fillRect(0, 0, W, H);
+  // plates
+  const cols = 3, rows = 4;
+  for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
+    const x = i * W / cols, y = j * H / rows;
+    const w = W / cols, h = H / rows;
+    g.fillStyle = (i + j) % 2 ? "#dde4eb" : "#e4eaf1";
+    g.fillRect(x + 3, y + 3, w - 6, h - 6);
+    g.strokeStyle = "rgba(150,163,178,.55)"; g.lineWidth = 2;
+    g.strokeRect(x + 3, y + 3, w - 6, h - 6);
+    g.strokeStyle = "rgba(255,255,255,.8)"; g.lineWidth = 1;
+    g.strokeRect(x + 5, y + 5, w - 10, h - 10);
+    // rivets
+    g.fillStyle = "#b6c1cd";
+    for (const [rx, ry] of [[x + 14, y + 14], [x + w - 14, y + 14], [x + 14, y + h - 14], [x + w - 14, y + h - 14]]) {
+      g.beginPath(); g.arc(rx, ry, 3.2, 0, 7); g.fill();
+      g.fillStyle = "#eef2f7"; g.beginPath(); g.arc(rx - 1, ry - 1, 1.2, 0, 7); g.fill();
+      g.fillStyle = "#b6c1cd";
+    }
+    // faint technical marks
+    if (rr() < 0.4) {
+      g.strokeStyle = "rgba(140,155,172,.35)"; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(x + 24, y + h - 22); g.lineTo(x + 24 + 30 + rr() * 40, y + h - 22); g.stroke();
+    }
+  }
+  // conduits
+  g.fillStyle = "#cfd8e1"; g.fillRect(0, 96, W, 10); g.fillRect(0, 506, W, 10);
+  g.strokeStyle = "rgba(255,255,255,.7)"; g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(0, 98); g.lineTo(W, 98); g.moveTo(0, 508); g.lineTo(W, 508); g.stroke();
+  // hazard frame around bay
+  g.save();
+  g.strokeStyle = "#f2740b"; g.lineWidth = 6; g.setLineDash([14, 10]);
+  g.strokeRect(BAY.x - 12, BAY.y - 12, BAY.w + 24, BAY.h + 24 + WALL);
+  g.restore();
+  // walls
+  g.fillStyle = "#8d99a7";
+  g.fillRect(0, 0, W, WALL); g.fillRect(0, H - WALL, W, WALL);
+  g.fillRect(0, 0, WALL, H); g.fillRect(W - WALL, 0, WALL, H);
+  g.strokeStyle = "#6b7887"; g.lineWidth = 2;
+  g.strokeRect(WALL - 1, WALL - 1, W - 2 * WALL + 2, H - 2 * WALL + 2);
+  g.strokeStyle = "rgba(255,255,255,.55)"; g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(WALL + 2, H - WALL - 2); g.lineTo(W - WALL - 2, H - WALL - 2); g.stroke();
+  // wall bolts
+  g.fillStyle = "#5f6b7a";
+  for (let x = 24; x < W; x += 48) {
+    g.beginPath(); g.arc(x, WALL / 2, 3, 0, 7); g.fill();
+    g.beginPath(); g.arc(x, H - WALL / 2, 3, 0, 7); g.fill();
+  }
+  for (let y = 24; y < H; y += 48) {
+    g.beginPath(); g.arc(WALL / 2, y, 3, 0, 7); g.fill();
+    g.beginPath(); g.arc(W - WALL / 2, y, 3, 0, 7); g.fill();
+  }
+  // corner beacons
+  for (const [bx, by] of [[WALL + 10, WALL + 10], [W - WALL - 10, WALL + 10]]) {
+    g.fillStyle = "#f2740b"; g.beginPath(); g.arc(bx, by, 5, 0, 7); g.fill();
+    g.fillStyle = "#ffd9b0"; g.beginPath(); g.arc(bx, by, 2, 0, 7); g.fill();
+  }
+  bg = c;
+}
+
+/* ---- particles / fx ---- */
+function spark(x, y, n, col, sp) {
+  if (UI.reduced) n = Math.ceil(n / 3);
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * 6.283, v = (sp || 120) * (0.4 + Math.random());
+    UI.parts.push({ type: "s", x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.35 + Math.random() * 0.25, max: 0.6, col });
+  }
+}
+function ringFx(x, y, col, r) { UI.parts.push({ type: "r", x, y, r: r || 10, life: 0.4, max: 0.4, col }); }
+function floatTxt(x, y, txt, col) { UI.parts.push({ type: "t", x, y, vy: -34, life: 1, max: 1, txt, col }); }
+function stepParts(dt) {
+  for (let i = UI.parts.length - 1; i >= 0; i--) {
+    const p = UI.parts[i]; p.life -= dt;
+    if (p.life <= 0) { UI.parts.splice(i, 1); continue; }
+    if (p.type === "s") { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.94; p.vy *= 0.94; }
+    if (p.type === "t") p.y += p.vy * dt;
+    if (p.type === "r") p.r += 260 * dt;
+  }
+  if (UI.shake > 0) UI.shake = Math.max(0, UI.shake - dt * 26);
+  if (UI.dmgFlash > 0) UI.dmgFlash = Math.max(0, UI.dmgFlash - dt * 2.2);
+}
+
+/* ---- rendering ---- */
+function drawBay(now, g) {
+  const mouthY = BAY.y;
+  // housing
+  g.fillStyle = "#123a8f"; g.fillRect(BAY.x, mouthY, BAY.w, BAY.h);
+  g.fillStyle = "#1f6bff"; g.fillRect(BAY.x + 6, mouthY + 10, BAY.w - 12, BAY.h - 16 - WALL);
+  // moving chevrons into the mouth
+  g.strokeStyle = "rgba(255,255,255,.8)"; g.lineWidth = 3;
+  const off = (now * 40) % 26;
+  for (let y = mouthY + 20 + off; y < H - WALL - 8; y += 26) {
+    g.beginPath();
+    g.moveTo(BAY.x + 26, y); g.lineTo(BAY.x + BAY.w / 2, y + 12); g.lineTo(BAY.x + BAY.w - 26, y);
+    g.stroke();
+  }
+  // speed hint: color of the mouth depends on closest approaching object speed
+  let hint = null, bd = 1e9;
+  if (UI.game) for (const o of UI.game.st.objects) {
+    const d = Math.hypot(o.x - (BAY.x + BAY.w / 2), o.y - mouthY);
+    if (d < 150 && d < bd) { bd = d; hint = o; }
+  }
+  let col = "#9fe08a";
+  if (hint) {
+    const sp = Math.hypot(hint.vx, hint.vy);
+    col = hint.type !== "capsule" ? "#e5484d" : sp <= V_SAFE ? "#2fbf71" : sp <= V_CRASH_BAY ? "#f2740b" : "#e5484d";
+  }
+  const pulse = 0.55 + 0.45 * Math.sin(now * 4);
+  g.strokeStyle = col; g.lineWidth = 4; g.globalAlpha = 0.5 + pulse * 0.5;
+  g.setLineDash([10, 7]); g.lineDashOffset = -now * 30;
+  g.beginPath(); g.moveTo(BAY.x + 4, mouthY); g.lineTo(BAY.x + BAY.w - 4, mouthY); g.stroke();
+  g.setLineDash([]); g.globalAlpha = 1;
+  // label
+  g.fillStyle = "rgba(255,255,255,.9)";
+  g.font = "700 10px 'Segoe UI',Arial"; g.textAlign = "center";
+  g.fillText(t("bayLabel"), BAY.x + BAY.w / 2, H - WALL - 5);
+  g.textAlign = "left";
+}
+function drawBody(g, o, x, y, now) {
+  g.save(); g.translate(x, y);
+  if (o.type === "capsule") {
+    const a = Math.atan2(o.vy, o.vx); g.rotate(a);
+    g.fillStyle = "rgba(30,40,55,.18)"; g.beginPath(); g.arc(1.5, 2.5, o.r, 0, 7); g.fill();
+    g.fillStyle = "#ffffff"; g.strokeStyle = "#31405280"; g.lineWidth = 1.5;
+    g.beginPath(); g.arc(0, 0, o.r, 0, 7); g.fill(); g.stroke();
+    g.fillStyle = "#f2740b"; g.fillRect(-o.r * 0.2, -o.r + 1, o.r * 0.66, o.r * 2 - 2);
+    g.fillStyle = "#1f6bff"; g.beginPath(); g.arc(o.r * 0.34, 0, o.r * 0.34, 0, 7); g.fill();
+    g.fillStyle = "#bcd4ff"; g.beginPath(); g.arc(o.r * 0.4, -1, o.r * 0.15, 0, 7); g.fill();
+    g.restore();
+    // beacon
+    const bl = 0.5 + 0.5 * Math.sin(now * 6 + o.id * 2.1);
+    g.fillStyle = `rgba(242,116,11,${0.35 + bl * 0.65})`;
+    g.beginPath(); g.arc(x - o.r * 0.35, y - o.r * 0.75, 2, 0, 7); g.fill();
+    return;
+  }
+  g.rotate(o.ang);
+  if (o.type === "debris") {
+    g.fillStyle = "rgba(30,40,55,.18)";
+    g.beginPath(); g.arc(1.5, 2.5, o.r, 0, 7); g.fill();
+    g.beginPath();
+    const n = o.poly.length;
+    for (let i = 0; i <= n; i++) {
+      const a = (i % n) / n * 6.283, r = o.poly[i % n];
+      if (i === 0) g.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      else g.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    g.closePath();
+    const grad = g.createLinearGradient(-o.r, -o.r, o.r, o.r);
+    grad.addColorStop(0, "#93a0ad"); grad.addColorStop(1, "#6b7887");
+    g.fillStyle = grad; g.fill();
+    g.strokeStyle = "#48545f"; g.lineWidth = 1.5; g.stroke();
+    g.strokeStyle = "rgba(255,255,255,.35)";
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(o.poly[0], 0); g.stroke();
+  } else { // heavy
+    g.fillStyle = "rgba(30,40,55,.22)";
+    g.beginPath(); g.arc(2, 3, o.r, 0, 7); g.fill();
+    g.fillStyle = "#39434e"; g.strokeStyle = "#20262e"; g.lineWidth = 2;
+    const s = o.r * 0.92;
+    g.beginPath();
+    if (g.roundRect) g.roundRect(-s, -s, 2 * s, 2 * s, 5); else g.rect(-s, -s, 2 * s, 2 * s);
+    g.fill(); g.stroke();
+    // hazard cross
+    g.strokeStyle = "#f2740b"; g.lineWidth = 4;
+    g.beginPath(); g.moveTo(-s * 0.55, -s * 0.55); g.lineTo(s * 0.55, s * 0.55);
+    g.moveTo(s * 0.55, -s * 0.55); g.lineTo(-s * 0.55, s * 0.55); g.stroke();
+    g.fillStyle = "#8d99a7";
+    for (const [bx, by] of [[-s * 0.75, -s * 0.75], [s * 0.75, -s * 0.75], [-s * 0.75, s * 0.75], [s * 0.75, s * 0.75]]) {
+      g.beginPath(); g.arc(bx, by, 2.6, 0, 7); g.fill();
+    }
+  }
+  g.restore();
+}
+function drawMagnet(g, now) {
+  const mg = UI.game.st.magnet, attract = mg.pol > 0;
+  const col = attract ? "#f2740b" : "#1f6bff";
+  const colD = attract ? "#c55c07" : "#1240b8";
+  // reach circle
+  g.strokeStyle = col; g.globalAlpha = 0.16; g.lineWidth = 1.5;
+  g.setLineDash([4, 9]); g.beginPath(); g.arc(mg.x, mg.y, FIELD_R, 0, 7); g.stroke();
+  g.setLineDash([]); g.globalAlpha = 1;
+  // field lines
+  const nL = 12, rot = now * (attract ? 0.5 : -0.5);
+  g.lineWidth = 1.6;
+  for (let i = 0; i < nL; i++) {
+    const a = rot + i / nL * 6.283;
+    const r0 = 16, r1 = FIELD_R * (0.82 + 0.14 * Math.sin(now * 2.2 + i * 1.7));
+    const cx = mg.x + Math.cos(a + 0.28) * r1 * 0.55, cy = mg.y + Math.sin(a + 0.28) * r1 * 0.55;
+    g.strokeStyle = col; g.globalAlpha = 0.32 + 0.2 * Math.sin(now * 3 + i);
+    g.beginPath();
+    g.moveTo(mg.x + Math.cos(a) * r0, mg.y + Math.sin(a) * r0);
+    g.quadraticCurveTo(cx, cy, mg.x + Math.cos(a) * r1, mg.y + Math.sin(a) * r1);
+    g.stroke();
+    // arrow head
+    const ax = mg.x + Math.cos(a) * r1, ay = mg.y + Math.sin(a) * r1;
+    const ta = a + (attract ? Math.PI : 0);
+    g.globalAlpha = 0.5;
+    g.beginPath();
+    g.moveTo(ax + Math.cos(ta) * 6, ay + Math.sin(ta) * 6);
+    g.lineTo(ax + Math.cos(ta + 2.5) * 5, ay + Math.sin(ta + 2.5) * 5);
+    g.lineTo(ax + Math.cos(ta - 2.5) * 5, ay + Math.sin(ta - 2.5) * 5);
+    g.closePath(); g.fillStyle = col; g.fill();
+  }
+  g.globalAlpha = 1;
+  // body
+  g.save(); g.translate(mg.x, mg.y);
+  g.fillStyle = "rgba(20,28,40,.25)"; g.beginPath(); g.arc(2, 3, 15, 0, 7); g.fill();
+  g.fillStyle = "#e8edf3"; g.strokeStyle = "#39434e"; g.lineWidth = 2;
+  g.beginPath(); g.arc(0, 0, 14, 0, 7); g.fill(); g.stroke();
+  g.fillStyle = col; g.beginPath(); g.arc(0, 0, 9, 0, 7); g.fill();
+  g.fillStyle = "#fff";
+  g.font = "900 12px 'Segoe UI',Arial"; g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillText(attract ? "N" : "S", 0, 0.5);
+  g.textAlign = "left"; g.textBaseline = "alphabetic";
+  // polarity ring
+  g.strokeStyle = col; g.lineWidth = 2.5;
+  g.setLineDash(attract ? [5, 5] : [2, 7]);
+  g.lineDashOffset = attract ? now * 22 : -now * 40;
+  g.beginPath(); g.arc(0, 0, 19, 0, 7); g.stroke();
+  g.setLineDash([]);
+  g.restore();
+}
+function drawParts(g) {
+  for (const p of UI.parts) {
+    const k = p.life / p.max;
+    if (p.type === "s") {
+      g.strokeStyle = p.col; g.globalAlpha = k; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - p.vx * 0.03, p.y - p.vy * 0.03); g.stroke();
+    } else if (p.type === "r") {
+      g.strokeStyle = p.col; g.globalAlpha = k * 0.8; g.lineWidth = 2.5;
+      g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.stroke();
+    } else if (p.type === "t") {
+      g.globalAlpha = Math.min(1, k * 2); g.fillStyle = p.col;
+      g.font = "900 15px 'Segoe UI',Arial"; g.textAlign = "center";
+      g.fillText(p.txt, p.x, p.y); g.textAlign = "left";
+    }
+  }
+  g.globalAlpha = 1;
+}
+function render(now) {
+  const g = ctx;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, cv.width, cv.height);
+  const shx = UI.shake > 0 ? (Math.random() - 0.5) * UI.shake : 0;
+  const shy = UI.shake > 0 ? (Math.random() - 0.5) * UI.shake : 0;
+  g.setTransform(scale, 0, 0, scale, (cv.width - W * scale) / 2 + shx * scale, (cv.height - H * scale) / 2 + shy * scale);
+  g.drawImage(bg, 0, 0);
+  drawBay(now, g);
+  const al = UI.alpha;
+  for (const o of UI.game.st.objects) {
+    const x = o.px + (o.x - o.px) * al, y = o.py + (o.y - o.py) * al;
+    // tutorial speed ring on capsules
+    if (UI.game.st.mode === "tutorial" && o.type === "capsule") {
+      const sp = Math.hypot(o.vx, o.vy);
+      g.strokeStyle = sp <= V_SAFE ? "#2fbf71" : "#e5484d";
+      g.lineWidth = 2; g.setLineDash([5, 4]);
+      g.beginPath(); g.arc(x, y, o.r + 5, 0, 7); g.stroke(); g.setLineDash([]);
+    }
+    drawBody(g, o, x, y, now);
+  }
+  drawMagnet(g, now);
+  drawParts(g);
+  if (UI.dmgFlash > 0) {
+    g.strokeStyle = `rgba(229,72,77,${UI.dmgFlash * 0.8})`;
+    g.lineWidth = 16; g.strokeRect(8, 8, W - 16, H - 16);
+  }
+  if (DEBUG) {
+    const st = UI.game.st;
+    $("#debugBox").textContent =
+      `fps ${UI.fps | 0} | obj ${st.objects.length} (cap ${st.objects.filter(o => o.type === "capsule").length})` +
+      ` | saved ${st.saved}/${GOAL} lost ${st.lost} hull ${st.integrity}` +
+      ` | spawned c${st.capSpawned} d${st.debSpawned} h${st.heaSpawned}` +
+      ` | t ${st.t.toFixed(1)} left ${st.timeLeft === Infinity ? "∞" : st.timeLeft.toFixed(1)}`;
+  }
+}
+
+/* ---- HUD ---- */
+function hudInit() {
+  const hull = $("#hudHull");
+  hull.innerHTML = "";
+  for (let i = 0; i < 3; i++) {
+    const s = document.createElement("i");
+    s.innerHTML = `<svg viewBox="0 0 16 16" width="16" height="16"><polygon points="8,1 14.5,4.5 14.5,11.5 8,15 1.5,11.5 1.5,4.5" fill="#f2740b" stroke="#7c3d02" stroke-width="1"/><polygon points="8,4 11.8,6.2 11.8,9.8 8,12 4.2,9.8 4.2,6.2" fill="#ffd9b0"/></svg>`;
+    hull.appendChild(s);
+  }
+  const caps = $("#hudCaps");
+  caps.querySelectorAll("i").forEach(e => e.remove());
+  const ref = caps.querySelector("b");
+  for (let i = 0; i < GOAL; i++) {
+    const d = document.createElement("i");
+    caps.insertBefore(d, ref);
+  }
+}
+function hudUpdate() {
+  const st = UI.game.st;
+  $("#hudTime").textContent = fmtTime(st.timeLeft);
+  $("#hudTime").classList.toggle("low", st.mode === "mission" && st.timeLeft <= 10.5 && !st.over);
+  $("#hudCount").textContent = `${st.saved}/${GOAL}`;
+  const dots = $("#hudCaps").querySelectorAll("i");
+  dots.forEach((d, i) => d.classList.toggle("on", i < st.saved));
+  $("#hudHull").querySelectorAll("i").forEach((h, i) => h.classList.toggle("off", i >= st.integrity));
+}
+function toast(msg, cls) {
+  const el = $("#toast");
+  el.textContent = msg; el.className = "show " + (cls || "");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.className = ""; }, 1400);
+}
+function polBtnUpdate() {
+  const attract = UI.game.st.magnet.pol > 0;
+  const b = $("#polBtn");
+  b.className = attract ? "" : "rep";
+  b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 3v8a6 6 0 0 0 12 0V3"/><path d="M3 3h6M15 3h6"/></svg><span>${attract ? t("attract") : t("repel")}</span>`;
+}
+
+/* ---- events → fx ---- */
+function applyEvents(evs) {
+  for (const e of evs) {
+    switch (e.type) {
+      case "save":
+        Sfx.save(); floatTxt(e.x, e.y - 18, t("savePt"), "#2fbf71");
+        ringFx(e.x, e.y, "#2fbf71", 8); spark(e.x, e.y, 8, "#9fe08a", 90);
+        hudUpdate();
+        break;
+      case "damage":
+        Sfx.damage(); UI.shake = UI.reduced ? 0 : 9; UI.dmgFlash = 1;
+        spark(e.x, e.y, 14, "#ffd166", 160); spark(e.x, e.y, 8, "#e5484d", 120);
+        toast(t("hullDamage") + " −1", "bad"); hudUpdate();
+        break;
+      case "crashBay": case "crashWall": case "killed":
+        Sfx.crash(); UI.shake = UI.reduced ? 0 : 6;
+        spark(e.x, e.y, 16, "#f2740b", 170); spark(e.x, e.y, 10, "#ffffff", 120);
+        toast(t("capsuleLost"), "bad"); hudUpdate();
+        break;
+      case "tooFast": Sfx.tooFast(); floatTxt(e.x, e.y, t("tooFast"), "#f2740b"); break;
+      case "clang": if (e.imp > 110) Sfx.clang(e.imp); spark(e.x, e.y, 4, "#ffe9a8", 70); break;
+      case "invert": Sfx.invert(e.pol); ringFx(UI.game.st.magnet.x, UI.game.st.magnet.y, e.pol > 0 ? "#f2740b" : "#1f6bff", 16); polBtnUpdate(); break;
+      case "tick": if (e.n <= 5) Sfx.tick(); break;
+      case "spawn": spark(e.x, e.y, 3, "#ffffff", 50); break;
+      case "tutStep": showTut(); break;
+      case "tutDone":
+        Sfx.win(); toast(t("tutDone"), "");
+        UI.tutSeen = true; store.set("tutSeen", true);
+        setTimeout(() => goHome(), 2200);
+        break;
+      case "win": Sfx.win(); setTimeout(endScreen, 700); break;
+      case "lose": Sfx.lose(); setTimeout(endScreen, 700); break;
+    }
+  }
+}
+
+/* ---- screens ---- */
+function show(id) {
+  for (const s of ["scrHome", "scrBrief", "scrPause", "scrEnd", "scrHelp"]) $("#" + s).hidden = true;
+  if (id) $("#" + id).hidden = false;
+}
+function screenTo(name) {
+  UI.screen = name;
+  const playing = name === "play";
+  $("#hud").hidden = !playing;
+  $("#polBtn").hidden = !playing;
+  $("#pauseBtn").hidden = !playing;
+  $("#tutBox").hidden = !(playing && UI.game && UI.game.st.mode === "tutorial");
+  show(name === "home" ? "scrHome" : name === "brief" ? "scrBrief" : name === "pause" ? "scrPause" : name === "end" ? "scrEnd" : name === "help" ? "scrHelp" : null);
+}
+function startGame(mode, missionIdx) {
+  UI.parts.length = 0; UI.shake = 0; UI.dmgFlash = 0;
+  const seed = mode === "attract" ? 4242 : (Date.now() ^ (Math.random() * 1e9)) >>> 0;
+  UI.game = createGame({ mode, mission: missionIdx, seed });
+  UI.acc = 0; UI.lastT = 0;
+  if (mode !== "attract") { hudInit(); hudUpdate(); polBtnUpdate(); }
+  if (mode === "tutorial") showTut();
+}
+function goHome() {
+  startGame("attract");
+  renderMissions();
+  screenTo("home");
+}
+function renderMissions() {
+  const list = $("#missionList"); list.innerHTML = "";
+  MISSIONS.forEach((m, i) => {
+    const locked = i + 1 > UI.unlocked;
+    const card = document.createElement("div");
+    card.className = "mcard" + (locked ? " locked" : "");
+    const done = UI.best["m" + (i + 1)] > 0;
+    card.innerHTML = `<div class="num">${i + 1}</div><div class="tx"><b>${t("m" + (i + 1))}</b><span>${t("m" + (i + 1) + "d")}</span></div>` +
+      (locked ? `<div class="lock">🔒</div>` : done ? `<div class="done">✓ ${t("mDone")}<br>${UI.best["m" + (i + 1)]}</div>` : "");
+    if (!locked) card.addEventListener("click", () => {
+      UI.curMission = i;
+      $("#briefTitle").textContent = `${i + 1} — ${t("m" + (i + 1))}`;
+      $("#briefDesc").textContent = t("m" + (i + 1) + "d");
+      $("#briefRules").innerHTML = `<li>${t("goal").replace("{n}", GOAL)}</li>` +
+        (m.heavy ? `<li>⚠ ${t("m2d")}</li>` : "") + (m.multi ? `<li>⚠ ${t("m3d")}</li>` : "");
+      UI.briefBackTo = "home";
+      screenTo("brief");
+    });
+    list.appendChild(card);
+  });
+}
+function showTut() {
+  const st = UI.game.st;
+  const box = $("#tutBox");
+  box.hidden = false;
+  $("#tutStep").textContent = t("tutStep").replace("{n}", String(Math.min(3, st.tutPhase + 1)));
+  $("#tutText").textContent = t("tut" + Math.min(2, st.tutPhase));
+}
+function endScreen() {
+  const st = UI.game.st;
+  const won = st.won;
+  $("#endTitle").textContent = won ? t("winTitle") : t("loseTitle");
+  $("#endTitle").style.color = won ? "var(--ok)" : "var(--bad)";
+  $("#endReason").textContent = t(st.reason === "goal" ? "reasonGoal" : st.reason === "hull" ? "reasonHull" : "reasonTime");
+  const key = "m" + (UI.curMission + 1);
+  const prevBest = UI.best[key] || 0;
+  let newBest = false;
+  if (won && st.score > prevBest) { UI.best[key] = st.score; store.set("best", UI.best); newBest = true; }
+  $("#statLine").innerHTML =
+    `<div><span>${t("savedStat")}</span>${st.saved}/${GOAL}</div>` +
+    `<div><span>${t("integStat")}</span>${st.integrity}/3</div>` +
+    `<div><span>${t("yourScore")}</span>${st.score}</div>`;
+  $("#endBest").textContent = newBest ? t("newBest") : `${t("best")}: ${Math.max(prevBest, UI.best[key] || 0)}`;
+  if (won) {
+    const nu = Math.min(3, UI.curMission + 2); // winning mission i unlocks mission i+1
+    if (nu > UI.unlocked) { UI.unlocked = nu; store.set("unlocked", nu); }
+  }
+  const nxt = $("#btnNext");
+  nxt.hidden = !(won && UI.curMission < 2);
+  screenTo("end");
+}
+
+/* ---- main loop ---- */
+function frame(ts) {
+  UI.raf = requestAnimationFrame(frame);
+  if (!UI.lastT) UI.lastT = ts;
+  let dt = (ts - UI.lastT) / 1000;
+  UI.lastT = ts;
+  if (dt > 0.25) dt = 0.25;
+  UI.fpsN++; UI.fpsT += dt;
+  if (UI.fpsT >= 0.5) { UI.fps = UI.fpsN / UI.fpsT; UI.fpsN = 0; UI.fpsT = 0; }
+  const playing = UI.screen === "play" || UI.screen === "home" || (UI.screen === "help" && UI.helpBack === "home");
+  if (UI.game && playing) {
+    UI.acc += dt;
+    let n = 0;
+    while (UI.acc >= DT && n < 6) { UI.game.step(); n++; UI.acc -= DT; }
+    if (n >= 6) UI.acc = 0;
+    UI.alpha = UI.acc / DT;
+    applyEvents(UI.game.drainEvents());
+    if (UI.screen === "play" && UI.game.st.mode === "mission") hudUpdate();
+    if (UI.game.st.mode === "tutorial") {
+      const ph = UI.game.st.tutPhase;
+      if (showTut._ph !== ph) { showTut._ph = ph; showTut(); }
+    }
+  }
+  stepParts(dt);
+  render(ts / 1000);
+  UI.lastRaf = performance.now();
+}
+
+/* ---- input ---- */
+function toWorld(ev) {
+  const r = cv.getBoundingClientRect();
+  const x = (ev.clientX - r.left) / r.width * W;
+  const y = (ev.clientY - r.top) / r.height * H;
+  return { x, y };
+}
+let pDown = false, pT0 = 0, pX0 = 0, pY0 = 0, pMoved = false;
+cv.addEventListener("pointerdown", (e) => {
+  Sfx.unlock();
+  pDown = true; pT0 = performance.now(); pX0 = e.clientX; pY0 = e.clientY; pMoved = false;
+  if (UI.game && UI.screen === "play") { const p = toWorld(e); UI.game.setPointer(p.x, p.y); }
+  cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener("pointermove", (e) => {
+  if (Math.hypot(e.clientX - pX0, e.clientY - pY0) > 9) pMoved = true;
+  if (UI.game && UI.screen === "play") { const p = toWorld(e); UI.game.setPointer(p.x, p.y); }
+});
+cv.addEventListener("pointerup", (e) => {
+  if (pDown && performance.now() - pT0 < 260 && !pMoved && UI.screen === "play") UI.game.invert();
+  pDown = false;
+});
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space") {
+    e.preventDefault();
+    Sfx.unlock();
+    if (UI.screen === "play") UI.game.invert();
+    else if (UI.screen === "brief") $("#btnGo").click();
+  } else if (e.code === "KeyP" || e.code === "Escape") {
+    if (UI.screen === "play") pauseGame();
+    else if (UI.screen === "pause") resumeGame();
+  } else if (e.code === "Enter") {
+    if (UI.screen === "home") { }
+  }
+});
+function pauseGame() { if (UI.screen !== "play") return; UI.screen = "pause"; screenTo("pause"); }
+function resumeGame() { UI.screen = "play"; screenTo("play"); }
+document.addEventListener("visibilitychange", () => { if (document.hidden && UI.screen === "play") pauseGame(); });
+window.addEventListener("blur", () => { if (UI.screen === "play") pauseGame(); });
+
+/* ---- buttons ---- */
+$("#btnTuto").addEventListener("click", () => { Sfx.unlock(); startGame("tutorial"); screenTo("play"); });
+$("#btnHelp").addEventListener("click", () => { UI.helpBack = "home"; screenTo("help"); });
+$("#btnPauseHelp").addEventListener("click", () => { UI.helpBack = "pause"; screenTo("help"); });
+$("#btnHelpClose").addEventListener("click", () => { screenTo(UI.helpBack); });
+$("#btnGo").addEventListener("click", () => { Sfx.unlock(); startGame("mission", UI.curMission); screenTo("play"); $("#hudMission").textContent = `${UI.curMission + 1} — ${t("m" + (UI.curMission + 1))}`; });
+$("#btnBriefBack").addEventListener("click", () => screenTo("home"));
+$("#btnResume").addEventListener("click", resumeGame);
+$("#btnQuit").addEventListener("click", goHome);
+$("#btnRetry").addEventListener("click", () => { startGame(UI.game.st.mode === "tutorial" ? "tutorial" : "mission", UI.curMission); screenTo("play"); if (UI.game.st.mode === "mission") $("#hudMission").textContent = `${UI.curMission + 1} — ${t("m" + (UI.curMission + 1))}`; });
+$("#btnNext").addEventListener("click", () => { UI.curMission = Math.min(2, UI.curMission + 1); renderMissions(); goHome(); });
+$("#btnEndHome").addEventListener("click", goHome);
+$("#polBtn").addEventListener("click", () => { Sfx.unlock(); if (UI.screen === "play") UI.game.invert(); });
+$("#pauseBtn").addEventListener("click", pauseGame);
+
+/* ---- language ---- */
+function applyI18n() {
+  document.documentElement.lang = UI.lang;
+  for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.getAttribute("data-i18n"));
+  for (const el of document.querySelectorAll("[data-i18n-mlp]")) {
+    const key = el.getAttribute("data-i18n-mlp");
+    const arr = t(key);
+    if (Array.isArray(arr)) {
+      el.innerHTML = arr.map(s => `<li>${s}</li>`).join("");
+    } else el.textContent = String(arr);
+  }
+  $("#btnTuto").textContent = t("tutorial");
+  $("#btnHelp").textContent = t("help");
+  $("#btnGo").textContent = t("go");
+  $("#btnBriefBack").textContent = t("back");
+  $("#btnResume").textContent = t("resume");
+  $("#btnQuit").textContent = t("quit");
+  $("#btnRetry").textContent = t("retry");
+  $("#btnNext").textContent = t("next");
+  $("#btnEndHome").textContent = t("home");
+  $("#btnHelpClose").textContent = t("close");
+  for (const row of ["#langRow", "#langRow2"]) {
+    const el = $(row); el.innerHTML = "";
+    for (const l of ["en", "fr", "es"]) {
+      const b = document.createElement("button");
+      b.textContent = l.toUpperCase();
+      b.className = UI.lang === l ? "on" : "";
+      b.addEventListener("click", () => { UI.lang = l; store.set("lang", l); applyI18n(); renderMissions(); if (UI.game) polBtnUpdate(); if (UI.game && UI.game.st.mode === "tutorial") showTut(); });
+      el.appendChild(b);
+    }
+  }
+  renderMissions();
+}
+
+/* ---- QA hooks (read-only, also powers automated play) ---- */
+window.__aimant = {
+  version: AIMANT_VERSION,
+  start(mode, mission) {
+    const m = mode || "mission", mi = mission || 0;
+    startGame(m, mi); screenTo("play");
+    if (m === "mission") $("#hudMission").textContent = `${mi + 1} — ${t("m" + (mi + 1))}`;
+    return this.state();
+  },
+  step(n) {
+    n = n || 1;
+    for (let i = 0; i < n; i++) UI.game.step();
+    applyEvents(UI.game.drainEvents());
+    stepParts(n * DT); // particles age even when the render loop is throttled
+    return this.state();
+  },
+  pointer(x, y) { UI.game.setPointer(x, y); },
+  invert() { UI.game.invert(); applyEvents(UI.game.drainEvents()); },
+  state() { return UI.game ? UI.game.snapshot() : null; },
+  screen() { return UI.screen; },
+  lang(l) { if (l) { UI.lang = l; applyI18n(); } return UI.lang; },
+  paint() { render(performance.now() / 1000); },
+  screenshot() { return cv.toDataURL("image/png"); }
+};
+
+/* ---- boot ---- */
+resize();
+buildBG();
+applyI18n();
+startGame("attract");
+screenTo("home");
+if (DEBUG) $("#debugBox").hidden = false;
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "contributions": [
+    {
+      "name": "Cédric Bernadac",
+      "kind": "person",
+      "status": "included",
+      "summary": "Game concept and specification (magnet station, capsule rescue rules, hazards, missions), directed as a one-off mission for the Z Code workshop."
+    },
+    {
+      "name": "Z Code",
+      "kind": "agent",
+      "status": "included",
+      "summary": "Built the game: fixed-step physics with capped magnetic forces, trilingual interface, tutorial and three missions, synthesized audio, cover art, and verified it with headless test suites and real browser play.",
+      "profileUrl": "https://lob7.com/profiles/usr_ns4cywae"
+    }
+  ],
+  "basedOnReleaseIds": []
+}
